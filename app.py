@@ -1,5 +1,5 @@
 # ==============================================================================
-# CAPSTONE PROJECT: INTERACTIVE SUPERAPACITOR PREDICTOR WEB APP (FINAL CORRECTION V2)
+# CAPSTONE PROJECT: INTERACTIVE SUPERAPACITOR PREDICTOR WEB APP (SIMPLIFIED & FINAL)
 # ==============================================================================
 
 import streamlit as st
@@ -12,81 +12,53 @@ import numpy as np
 @st.cache_resource
 def load_and_train_models():
     """
-    Loads the seed data, generates a large dataset, and trains the XGBoost models.
-    This function is cached to run only once.
+    Loads the seed data, generates a large dataset directly, and trains the models.
     """
-    csv_data = """
-    Electrode_Material,Electrolyte_Type,Device_Type,Current_Density_Ag-1,Cycles_Completed,Charge_Capacity_mAh_g-1,Discharge_Capacity_mAh_g-1
-    CuO/MnO2@MWCNT,RAE,Coin Cell,1.0,0,192.03,182.89
-    CuO/MnO2@MWCNT,RAE,Coin Cell,1.0,5000,173.79,165.51
-    CuO/MnO2@MWCNT,RAE,Coin Cell,2.0,0,175.88,167.50
-    CuO/MnO2@MWCNT,KOH,Coin Cell,1.0,0,71.53,68.12
-    CuO/MnO2@MWCNT,KOH,Coin Cell,1.0,5000,58.59,55.80
-    CuO/CoO@MWCNT,RAE,Assembled_SC,2.75,0,29.03,27.65
-    CuO/CoO@MWCNT,RAE,Assembled_SC,2.75,5000,23.89,22.75
-    CuO/CoO@MWCNT,RAE,Assembled_SC,4.0,0,24.78,23.60
-    CuO/CoO@MWCNT,KOH,Assembled_SC,2.75,0,13.86,13.20
-    CuO/CoO@MWCNT,KOH,Assembled_SC,2.75,5000,10.76,10.25
-    CuO/CoO@MWCNT,RAE,Coin Cell,1.5,0,132.51,126.20
-    CuO/CoO@MWCNT,KOH,Coin Cell,1.5,0,58.79,55.99
-    CuO@MWCNT,RAE,Assembled_SC,1.5,0,98.22,93.54
-    CuO@MWCNT,RAE,Assembled_SC,1.5,10000,66.02,62.88
-    CuO@MWCNT,RAE,Assembled_SC,2.5,0,83.79,79.80
-    CuO@MWCNT,KOH,Assembled_SC,1.5,0,33.86,32.25
-    CuO@MWCNT,KOH,Assembled_SC,1.5,10000,22.05,21.00
-    CuO@MWCNT,RAE,Coin Cell,1.0,0,58.94,56.13
-    CuO@MWCNT,KOH,Coin Cell,1.0,0,37.78,35.98
-    CuO,RAE,Assembled_SC,0.475,0,12.68,12.08
-    CuO,RAE,Assembled_SC,0.475,10000,7.50,7.14
-    CuO,KOH,Assembled_SC,0.375,0,6.87,6.54
-    CuO,KOH,Assembled_SC,0.375,10000,3.80,3.62
-    CuO,RAE,Coin Cell,0.5,0,33.78,32.17
-    CuO,KOH,Coin Cell,0.5,0,23.48,22.36
-    """
-    df_small = pd.read_csv(StringIO(csv_data))
+    # --- Define Degradation Scenarios Directly ---
+    degradation_scenarios = [
+        {'config': {'Electrode_Material': 'CuO/MnO2@MWCNT', 'Electrolyte_Type': 'RAE', 'Device_Type': 'Coin Cell', 'Current_Density_Ag-1': 1.0}, 'start_cycles': 0, 'end_cycles': 5000, 'start_charge': 192.03, 'end_charge': 173.79, 'start_discharge': 182.89, 'end_discharge': 165.51},
+        {'config': {'Electrode_Material': 'CuO/MnO2@MWCNT', 'Electrolyte_Type': 'KOH', 'Device_Type': 'Coin Cell', 'Current_Density_Ag-1': 1.0}, 'start_cycles': 0, 'end_cycles': 5000, 'start_charge': 71.53, 'end_charge': 58.59, 'start_discharge': 68.12, 'end_discharge': 55.80},
+        {'config': {'Electrode_Material': 'CuO/CoO@MWCNT', 'Electrolyte_Type': 'RAE', 'Device_Type': 'Assembled_SC', 'Current_Density_Ag-1': 2.75}, 'start_cycles': 0, 'end_cycles': 5000, 'start_charge': 29.03, 'end_charge': 23.89, 'start_discharge': 27.65, 'end_discharge': 22.75},
+        {'config': {'Electrode_Material': 'CuO/CoO@MWCNT', 'Electrolyte_Type': 'KOH', 'Device_Type': 'Assembled_SC', 'Current_Density_Ag-1': 2.75}, 'start_cycles': 0, 'end_cycles': 5000, 'start_charge': 13.86, 'end_charge': 10.76, 'start_discharge': 13.20, 'end_discharge': 10.25},
+        {'config': {'Electrode_Material': 'CuO@MWCNT', 'Electrolyte_Type': 'RAE', 'Device_Type': 'Assembled_SC', 'Current_Density_Ag-1': 1.5}, 'start_cycles': 0, 'end_cycles': 10000, 'start_charge': 98.22, 'end_charge': 66.02, 'start_discharge': 93.54, 'end_discharge': 62.88},
+        {'config': {'Electrode_Material': 'CuO@MWCNT', 'Electrolyte_Type': 'KOH', 'Device_Type': 'Assembled_SC', 'Current_Density_Ag-1': 1.5}, 'start_cycles': 0, 'end_cycles': 10000, 'start_charge': 33.86, 'end_charge': 22.05, 'start_discharge': 32.25, 'end_discharge': 21.00},
+        {'config': {'Electrode_Material': 'CuO', 'Electrolyte_Type': 'RAE', 'Device_Type': 'Assembled_SC', 'Current_Density_Ag-1': 0.475}, 'start_cycles': 0, 'end_cycles': 10000, 'start_charge': 12.68, 'end_charge': 7.50, 'start_discharge': 12.08, 'end_discharge': 7.14},
+        {'config': {'Electrode_Material': 'CuO', 'Electrolyte_Type': 'KOH', 'Device_Type': 'Assembled_SC', 'Current_Density_Ag-1': 0.375}, 'start_cycles': 0, 'end_cycles': 10000, 'start_charge': 6.87, 'end_charge': 3.80, 'start_discharge': 6.54, 'end_discharge': 3.62},
+    ]
 
-    # --- Generate the Large, Smooth Dataset (REWRITTEN FUNCTION) ---
-    def generate_large_dataset(df):
-        all_new_data = []
-        
-        # Identify unique combinations of material properties
-        unique_configs = df[['Electrode_Material', 'Electrolyte_Type', 'Device_Type', 'Current_Density_Ag-1']].drop_duplicates()
-        
-        for index, config_row in unique_configs.iterrows():
-            # Filter the original dataframe for the current configuration
-            group_df = df[
-                (df['Electrode_Material'] == config_row['Electrode_Material']) &
-                (df['Electrolyte_Type'] == config_row['Electrolyte_Type']) &
-                (df['Device_Type'] == config_row['Device_Type']) &
-                (df['Current_Density_Ag-1'] == config_row['Current_Density_Ag-1'])
-            ]
-            
-            start_row = group_df.loc[group_df['Cycles_Completed'].idxmin()]
+    # --- Define Single-Point Scenarios Directly ---
+    single_point_scenarios = [
+        {'Electrode_Material': 'CuO/MnO2@MWCNT', 'Electrolyte_Type': 'RAE', 'Device_Type': 'Coin Cell', 'Current_Density_Ag-1': 2.0, 'Cycles_Completed': 0, 'Charge_Capacity_mAh_g-1': 175.88, 'Discharge_Capacity_mAh_g-1': 167.50},
+        {'Electrode_Material': 'CuO/CoO@MWCNT', 'Electrolyte_Type': 'RAE', 'Device_Type': 'Assembled_SC', 'Current_Density_Ag-1': 4.0, 'Cycles_Completed': 0, 'Charge_Capacity_mAh_g-1': 24.78, 'Discharge_Capacity_mAh_g-1': 23.60},
+        {'Electrode_Material': 'CuO/CoO@MWCNT', 'Electrolyte_Type': 'RAE', 'Device_Type': 'Coin Cell', 'Current_Density_Ag-1': 1.5, 'Cycles_Completed': 0, 'Charge_Capacity_mAh_g-1': 132.51, 'Discharge_Capacity_mAh_g-1': 126.20},
+        {'Electrode_Material': 'CuO/CoO@MWCNT', 'Electrolyte_Type': 'KOH', 'Device_Type': 'Coin Cell', 'Current_Density_Ag-1': 1.5, 'Cycles_Completed': 0, 'Charge_Capacity_mAh_g-1': 58.79, 'Discharge_Capacity_mAh_g-1': 55.99},
+        {'Electrode_Material': 'CuO@MWCNT', 'Electrolyte_Type': 'RAE', 'Device_Type': 'Assembled_SC', 'Current_Density_Ag-1': 2.5, 'Cycles_Completed': 0, 'Charge_Capacity_mAh_g-1': 83.79, 'Discharge_Capacity_mAh_g-1': 79.80},
+        {'Electrode_Material': 'CuO@MWCNT', 'Electrolyte_Type': 'RAE', 'Device_Type': 'Coin Cell', 'Current_Density_Ag-1': 1.0, 'Cycles_Completed': 0, 'Charge_Capacity_mAh_g-1': 58.94, 'Discharge_Capacity_mAh_g-1': 56.13},
+        {'Electrode_Material': 'CuO@MWCNT', 'Electrolyte_Type': 'KOH', 'Device_Type': 'Coin Cell', 'Current_Density_Ag-1': 1.0, 'Cycles_Completed': 0, 'Charge_Capacity_mAh_g-1': 37.78, 'Discharge_Capacity_mAh_g-1': 35.98},
+        {'Electrode_Material': 'CuO', 'Electrolyte_Type': 'RAE', 'Device_Type': 'Coin Cell', 'Current_Density_Ag-1': 0.5, 'Cycles_Completed': 0, 'Charge_Capacity_mAh_g-1': 33.78, 'Discharge_Capacity_mAh_g-1': 32.17},
+        {'Electrode_Material': 'CuO', 'Electrolyte_Type': 'KOH', 'Device_Type': 'Coin Cell', 'Current_Density_Ag-1': 0.5, 'Cycles_Completed': 0, 'Charge_Capacity_mAh_g-1': 23.48, 'Discharge_Capacity_mAh_g-1': 22.36},
+    ]
 
-            if len(group_df) > 1:
-                end_row = group_df.loc[group_df['Cycles_Completed'].idxmax()]
-                max_cycles = end_row['Cycles_Completed']
-                start_charge, end_charge = start_row['Charge_Capacity_mAh_g-1'], end_row['Charge_Capacity_mAh_g-1']
-                start_discharge, end_discharge = start_row['Discharge_Capacity_mAh_g-1'], end_row['Discharge_Capacity_mAh_g-1']
-                charge_drop, discharge_drop = start_charge - end_charge, start_discharge - end_discharge
+    all_data = []
+    # Process degradation scenarios
+    for scenario in degradation_scenarios:
+        charge_drop = scenario['start_charge'] - scenario['end_charge']
+        discharge_drop = scenario['start_discharge'] - scenario['end_discharge']
+        for cycles in range(0, scenario['end_cycles'] + 1, 250):
+            cycle_ratio = cycles / scenario['end_cycles'] if scenario['end_cycles'] > 0 else 0
+            charge = scenario['start_charge'] - charge_drop * (cycle_ratio ** 0.9)
+            discharge = scenario['start_discharge'] - discharge_drop * (cycle_ratio ** 0.9)
+            row_data = scenario['config'].copy()
+            row_data['Cycles_Completed'] = cycles
+            row_data['Charge_Capacity_mAh_g-1'] = charge
+            row_data['Discharge_Capacity_mAh_g-1'] = discharge
+            all_data.append(row_data)
 
-                for cycles in range(0, int(max_cycles) + 1, 250):
-                    cycle_ratio = cycles / max_cycles if max_cycles > 0 else 0
-                    charge = start_charge - charge_drop * (cycle_ratio ** 0.9)
-                    discharge = start_discharge - discharge_drop * (cycle_ratio ** 0.9)
-                    
-                    row_data = config_row.to_dict()
-                    row_data['Cycles_Completed'] = cycles
-                    row_data['Charge_Capacity_mAh_g-1'] = charge
-                    row_data['Discharge_Capacity_mAh_g-1'] = discharge
-                    all_new_data.append(row_data)
-            else:
-                all_new_data.append(start_row.to_dict())
+    # Add single point scenarios
+    all_data.extend(single_point_scenarios)
+    df_large = pd.DataFrame(all_data)
 
-        return pd.DataFrame(all_new_data)
-    
-    df_large = generate_large_dataset(df_small)
-    
+    # --- Train Models ---
     df_processed = pd.get_dummies(df_large, columns=['Electrode_Material', 'Electrolyte_Type', 'Device_Type'])
     features_cols = df_processed.drop(columns=['Charge_Capacity_mAh_g-1', 'Discharge_Capacity_mAh_g-1']).columns
     y_charge = df_processed['Charge_Capacity_mAh_g-1']
@@ -97,15 +69,14 @@ def load_and_train_models():
     
     return charge_model, discharge_model, features_cols
 
-# --- Load the models (this will only run once) ---
+# --- Load models ---
 charge_model_xgb, discharge_model_xgb, feature_columns = load_and_train_models()
 
-# --- WEB APPLICATION INTERFACE ---
+# --- WEB APP INTERFACE ---
 st.set_page_config(layout="wide")
 st.title("🔋 Supercapacitor Performance Predictor")
 st.markdown("A Capstone Project to predict supercapacitor degradation using Machine Learning. Select parameters from the sidebar to generate a prediction.")
 
-# --- SIDEBAR FOR USER INPUTS ---
 st.sidebar.header("Input Parameters")
 material_options = ['CuO/MnO2@MWCNT', 'CuO/CoO@MWCNT', 'CuO@MWCNT', 'CuO']
 plot_material = st.sidebar.selectbox("1. Select Electrode Material", material_options)
@@ -117,7 +88,6 @@ plot_current_density = st.sidebar.number_input("4. Enter Current Density (A/g)",
 unit_choice = st.sidebar.radio("5. Select Output Units", ('mAh/g', 'C/g'))
 output_format = st.sidebar.radio("6. Select Output Format", ('Simple Prediction', 'Graph', 'Tabular Data'))
 
-# --- MAIN PANEL FOR DISPLAYING OUTPUTS ---
 def predict_capacity(material, electrolyte, device, current_density, cycles):
     input_data = pd.DataFrame({'Current_Density_Ag-1': [current_density], 'Cycles_Completed': [cycles], 'Electrode_Material': [material], 'Electrolyte_Type': [electrolyte], 'Device_Type': [device]})
     input_encoded = pd.get_dummies(input_data)
@@ -126,7 +96,6 @@ def predict_capacity(material, electrolyte, device, current_density, cycles):
     discharge = discharge_model_xgb.predict(final_input)[0]
     return float(charge), float(discharge)
 
-# --- Logic to Display Different Outputs Based on User Choice ---
 if output_format == 'Simple Prediction':
     st.subheader("Simple Prediction for a Single Point")
     selected_cycles = st.slider("Select Number of Cycles to Predict", 0, 10000, 5000, 500)
