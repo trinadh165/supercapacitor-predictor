@@ -1,5 +1,5 @@
 # ==============================================================================
-# CAPSTONE PROJECT: INTERACTIVE SUPERAPACITOR PREDICTOR WEB APP (CORRECTED)
+# CAPSTONE PROJECT: INTERACTIVE SUPERAPACITOR PREDICTOR WEB APP (FINAL CORRECTION)
 # ==============================================================================
 
 import streamlit as st
@@ -49,36 +49,48 @@ def load_and_train_models():
     def generate_large_dataset(df):
         new_data = []
         grouping_cols = ['Electrode_Material', 'Electrolyte_Type', 'Device_Type', 'Current_Density_Ag-1']
-        # Define the columns that contain the actual values
-        value_cols = ['Cycles_Completed', 'Charge_Capacity_mAh_g-1', 'Discharge_Capacity_mAh_g-1']
         
-        grouped = df.groupby(grouping_cols)
-        
-        for name, group in grouped:
-            start_row = group.loc[group['Cycles_Completed'].idxmin()]
-            name_dict = dict(zip(grouping_cols, name))
+        # ### CORRECTION IS HERE: A more robust way to iterate ###
+        for _, row in df.iterrows():
+            group_df = df[
+                (df['Electrode_Material'] == row['Electrode_Material']) &
+                (df['Electrolyte_Type'] == row['Electrolyte_Type']) &
+                (df['Device_Type'] == row['Device_Type']) &
+                (df['Current_Density_Ag-1'] == row['Current_Density_Ag-1'])
+            ]
             
-            if len(group) > 1:
-                end_row = group.loc[group['Cycles_Completed'].idxmax()]
+            start_row = group_df.loc[group_df['Cycles_Completed'].idxmin()]
+
+            if len(group_df) > 1:
+                end_row = group_df.loc[group_df['Cycles_Completed'].idxmax()]
                 max_cycles, start_charge, end_charge, start_discharge, end_discharge = (
                     end_row['Cycles_Completed'], start_row['Charge_Capacity_mAh_g-1'], end_row['Charge_Capacity_mAh_g-1'],
                     start_row['Discharge_Capacity_mAh_g-1'], end_row['Discharge_Capacity_mAh_g-1']
                 )
                 charge_drop, discharge_drop = start_charge - end_charge, start_discharge - end_discharge
-                for cycles in range(0, int(max_cycles) + 1, 250):
-                    cycle_ratio = cycles / max_cycles if max_cycles > 0 else 0
-                    charge = start_charge - charge_drop * (cycle_ratio ** 0.9)
-                    discharge = start_discharge - discharge_drop * (cycle_ratio ** 0.9)
-                    new_data.append({**name_dict, 'Cycles_Completed': cycles, 'Charge_Capacity_mAh_g-1': charge, 'Discharge_Capacity_mAh_g-1': discharge})
-            else:
-                # ### CORRECTION IS HERE ###
-                # Instead of dropping columns, we explicitly select the value columns we want.
-                # This is safer and avoids the KeyError.
-                values_dict = start_row[value_cols].to_dict()
-                row_data = {**name_dict, **values_dict}
-                new_data.append(row_data)
                 
-        return pd.DataFrame(new_data)
+                # Check to avoid adding duplicates
+                if start_row['Cycles_Completed'] == 0:
+                    for cycles in range(0, int(max_cycles) + 1, 250):
+                        cycle_ratio = cycles / max_cycles if max_cycles > 0 else 0
+                        charge = start_charge - charge_drop * (cycle_ratio ** 0.9)
+                        discharge = start_discharge - discharge_drop * (cycle_ratio ** 0.9)
+                        
+                        row_data = {
+                            'Electrode_Material': row['Electrode_Material'],
+                            'Electrolyte_Type': row['Electrolyte_Type'],
+                            'Device_Type': row['Device_Type'],
+                            'Current_Density_Ag-1': row['Current_Density_Ag-1'],
+                            'Cycles_Completed': cycles,
+                            'Charge_Capacity_mAh_g-1': charge,
+                            'Discharge_Capacity_mAh_g-1': discharge
+                        }
+                        new_data.append(row_data)
+            else: # If it's a single data point (no degradation data)
+                new_data.append(row.to_dict())
+
+        # Remove potential duplicates before returning
+        return pd.DataFrame(new_data).drop_duplicates()
     
     df_large = generate_large_dataset(df_small)
     
