@@ -1,5 +1,5 @@
 # ==============================================================================
-# CAPSTONE PROJECT: INTERACTIVE SUPERAPACITOR PREDICTOR WEB APP (SIMPLIFIED & FINAL)
+# FINAL CAPSTONE PROJECT: INTERACTIVE SUPERAPACITOR PREDICTOR WITH FULL CONTROL
 # ==============================================================================
 
 import streamlit as st
@@ -9,10 +9,12 @@ import matplotlib.pyplot as plt
 import xgboost as xgb
 import numpy as np
 
+# --- CACHED MODEL TRAINING ---
 @st.cache_resource
 def load_and_train_models():
     """
-    Loads the seed data, generates a large dataset directly, and trains the models.
+    Loads the seed data, generates a large dataset, and trains the XGBoost models.
+    This function is cached to run only once.
     """
     # --- Define Degradation Scenarios Directly ---
     degradation_scenarios = [
@@ -25,8 +27,6 @@ def load_and_train_models():
         {'config': {'Electrode_Material': 'CuO', 'Electrolyte_Type': 'RAE', 'Device_Type': 'Assembled_SC', 'Current_Density_Ag-1': 0.475}, 'start_cycles': 0, 'end_cycles': 10000, 'start_charge': 12.68, 'end_charge': 7.50, 'start_discharge': 12.08, 'end_discharge': 7.14},
         {'config': {'Electrode_Material': 'CuO', 'Electrolyte_Type': 'KOH', 'Device_Type': 'Assembled_SC', 'Current_Density_Ag-1': 0.375}, 'start_cycles': 0, 'end_cycles': 10000, 'start_charge': 6.87, 'end_charge': 3.80, 'start_discharge': 6.54, 'end_discharge': 3.62},
     ]
-
-    # --- Define Single-Point Scenarios Directly ---
     single_point_scenarios = [
         {'Electrode_Material': 'CuO/MnO2@MWCNT', 'Electrolyte_Type': 'RAE', 'Device_Type': 'Coin Cell', 'Current_Density_Ag-1': 2.0, 'Cycles_Completed': 0, 'Charge_Capacity_mAh_g-1': 175.88, 'Discharge_Capacity_mAh_g-1': 167.50},
         {'Electrode_Material': 'CuO/CoO@MWCNT', 'Electrolyte_Type': 'RAE', 'Device_Type': 'Assembled_SC', 'Current_Density_Ag-1': 4.0, 'Cycles_Completed': 0, 'Charge_Capacity_mAh_g-1': 24.78, 'Discharge_Capacity_mAh_g-1': 23.60},
@@ -38,12 +38,9 @@ def load_and_train_models():
         {'Electrode_Material': 'CuO', 'Electrolyte_Type': 'RAE', 'Device_Type': 'Coin Cell', 'Current_Density_Ag-1': 0.5, 'Cycles_Completed': 0, 'Charge_Capacity_mAh_g-1': 33.78, 'Discharge_Capacity_mAh_g-1': 32.17},
         {'Electrode_Material': 'CuO', 'Electrolyte_Type': 'KOH', 'Device_Type': 'Coin Cell', 'Current_Density_Ag-1': 0.5, 'Cycles_Completed': 0, 'Charge_Capacity_mAh_g-1': 23.48, 'Discharge_Capacity_mAh_g-1': 22.36},
     ]
-
     all_data = []
-    # Process degradation scenarios
     for scenario in degradation_scenarios:
-        charge_drop = scenario['start_charge'] - scenario['end_charge']
-        discharge_drop = scenario['start_discharge'] - scenario['end_discharge']
+        charge_drop, discharge_drop = scenario['start_charge'] - scenario['end_charge'], scenario['start_discharge'] - scenario['end_discharge']
         for cycles in range(0, scenario['end_cycles'] + 1, 250):
             cycle_ratio = cycles / scenario['end_cycles'] if scenario['end_cycles'] > 0 else 0
             charge = scenario['start_charge'] - charge_drop * (cycle_ratio ** 0.9)
@@ -53,41 +50,48 @@ def load_and_train_models():
             row_data['Charge_Capacity_mAh_g-1'] = charge
             row_data['Discharge_Capacity_mAh_g-1'] = discharge
             all_data.append(row_data)
-
-    # Add single point scenarios
     all_data.extend(single_point_scenarios)
     df_large = pd.DataFrame(all_data)
-
-    # --- Train Models ---
     df_processed = pd.get_dummies(df_large, columns=['Electrode_Material', 'Electrolyte_Type', 'Device_Type'])
     features_cols = df_processed.drop(columns=['Charge_Capacity_mAh_g-1', 'Discharge_Capacity_mAh_g-1']).columns
     y_charge = df_processed['Charge_Capacity_mAh_g-1']
     y_discharge = df_processed['Discharge_Capacity_mAh_g-1']
-    
     charge_model = xgb.XGBRegressor(n_estimators=100, random_state=42).fit(df_processed[features_cols], y_charge)
     discharge_model = xgb.XGBRegressor(n_estimators=100, random_state=42).fit(df_processed[features_cols], y_discharge)
-    
     return charge_model, discharge_model, features_cols
 
-# --- Load models ---
+# --- Load the models (this will only run once) ---
 charge_model_xgb, discharge_model_xgb, feature_columns = load_and_train_models()
 
-# --- WEB APP INTERFACE ---
+# --- WEB APPLICATION INTERFACE ---
 st.set_page_config(layout="wide")
 st.title("🔋 Supercapacitor Performance Predictor")
 st.markdown("A Capstone Project to predict supercapacitor degradation using Machine Learning. Select parameters from the sidebar to generate a prediction.")
 
-st.sidebar.header("Input Parameters")
+# --- SIDEBAR FOR USER INPUTS ---
+st.sidebar.header("1. Scenario Parameters")
 material_options = ['CuO/MnO2@MWCNT', 'CuO/CoO@MWCNT', 'CuO@MWCNT', 'CuO']
-plot_material = st.sidebar.selectbox("1. Select Electrode Material", material_options)
+plot_material = st.sidebar.selectbox("Select Electrode Material", material_options)
 electrolyte_options = ['RAE', 'KOH']
-plot_electrolyte = st.sidebar.selectbox("2. Select Electrolyte Type", electrolyte_options)
+plot_electrolyte = st.sidebar.selectbox("Select Electrolyte Type", electrolyte_options)
 device_options = ['Coin Cell', 'Assembled_SC']
-plot_device = st.sidebar.selectbox("3. Select Device Type", device_options)
-plot_current_density = st.sidebar.number_input("4. Enter Current Density (A/g)", min_value=0.1, max_value=5.0, value=1.0, step=0.1)
-unit_choice = st.sidebar.radio("5. Select Output Units", ('mAh/g', 'C/g'))
-output_format = st.sidebar.radio("6. Select Output Format", ('Simple Prediction', 'Graph', 'Tabular Data'))
+plot_device = st.sidebar.selectbox("Select Device Type", device_options)
+plot_current_density = st.sidebar.number_input("Enter Current Density (A/g)", min_value=0.1, max_value=5.0, value=1.0, step=0.1)
 
+st.sidebar.header("2. Output Configuration")
+output_format = st.sidebar.selectbox("Select Output Format", ('Graph', 'Tabular Data', 'Simple Prediction'))
+unit_choice = st.sidebar.radio("Select Output Units", ('mAh/g', 'C/g'))
+
+# ### NEW FEATURE: Add conditional controls for cycle range and value type ###
+if output_format in ['Graph', 'Tabular Data']:
+    value_type = st.sidebar.radio("Select Value Type", ('Absolute Values', 'Percentage Retention'))
+    
+    st.sidebar.subheader("Define Cycle Range")
+    start_cycle = st.sidebar.number_input("Start Cycles", 0, 9500, 0, 500)
+    end_cycle = st.sidebar.number_input("End Cycles", 500, 10000, 10000, 500)
+    step_cycle = st.sidebar.number_input("Cycle Step (Difference)", 100, 2000, 500, 100)
+
+# --- MAIN PANEL FOR DISPLAYING OUTPUTS ---
 def predict_capacity(material, electrolyte, device, current_density, cycles):
     input_data = pd.DataFrame({'Current_Density_Ag-1': [current_density], 'Cycles_Completed': [cycles], 'Electrode_Material': [material], 'Electrolyte_Type': [electrolyte], 'Device_Type': [device]})
     input_encoded = pd.get_dummies(input_data)
@@ -96,6 +100,7 @@ def predict_capacity(material, electrolyte, device, current_density, cycles):
     discharge = discharge_model_xgb.predict(final_input)[0]
     return float(charge), float(discharge)
 
+# --- Main Logic to Generate Outputs ---
 if output_format == 'Simple Prediction':
     st.subheader("Simple Prediction for a Single Point")
     selected_cycles = st.slider("Select Number of Cycles to Predict", 0, 10000, 5000, 500)
@@ -107,37 +112,57 @@ if output_format == 'Simple Prediction':
     col1.metric("Predicted Charge Capacity", f"{charge_pred:.2f} {unit_choice}")
     col2.metric("Predicted Discharge Capacity", f"{discharge_pred:.2f} {unit_choice}")
 
-elif output_format == 'Graph':
-    st.subheader("Predictive Degradation Graph")
-    cycles_to_plot = list(range(0, 10001, 500))
-    charges, discharges = [], []
-    for cycle in cycles_to_plot:
-        charge, discharge = predict_capacity(plot_material, plot_electrolyte, plot_device, plot_current_density, cycle)
-        charges.append(charge)
-        discharges.append(discharge)
-    df_plot = pd.DataFrame({'Cycles': cycles_to_plot, 'Charge Capacity': charges, 'Discharge Capacity': discharges})
-    if unit_choice == 'C/g':
-        df_plot['Charge Capacity'] *= 3.6
-        df_plot['Discharge Capacity'] *= 3.6
-    fig, ax = plt.subplots(figsize=(10, 6))
-    ax.plot(df_plot['Cycles'], df_plot['Charge Capacity'], marker='o', linestyle='-', markersize=4, label='Predicted Charge Capacity')
-    ax.plot(df_plot['Cycles'], df_plot['Discharge Capacity'], marker='s', linestyle='--', markersize=4, label='Predicted Discharge Capacity')
-    ax.set_title(f'Prediction for {plot_material} ({plot_electrolyte})', fontsize=16)
-    ax.set_xlabel('Number of Cycles Completed', fontsize=12)
-    ax.set_ylabel(f'Capacity ({unit_choice})', fontsize=12)
-    ax.legend()
-    ax.grid(True)
-    st.pyplot(fig)
+else: # Handles both Graph and Tabular Data
+    # Validate cycle range
+    if start_cycle >= end_cycle:
+        st.error("Error: 'Start Cycles' must be less than 'End Cycles'. Please adjust the values in the sidebar.")
+    else:
+        cycles_to_plot = list(range(start_cycle, end_cycle + 1, step_cycle))
+        
+        # Get initial capacity for percentage calculation if needed
+        initial_charge, initial_discharge = 1, 1 # Default to 1 to avoid division by zero
+        if value_type == 'Percentage Retention':
+            initial_charge, initial_discharge = predict_capacity(plot_material, plot_electrolyte, plot_device, plot_current_density, 0)
 
-elif output_format == 'Tabular Data':
-    st.subheader("Predictive Degradation Data Table")
-    cycles_to_plot = list(range(0, 10001, 500))
-    table_data = []
-    for cycle in cycles_to_plot:
-        charge, discharge = predict_capacity(plot_material, plot_electrolyte, plot_device, plot_current_density, cycle)
-        table_data.append({'Cycles': cycle, 'Charge Capacity': charge, 'Discharge Capacity': discharge})
-    df_table = pd.DataFrame(table_data)
-    if unit_choice == 'C/g':
-        df_table['Charge Capacity'] *= 3.6
-        df_table['Discharge Capacity'] *= 3.6
-    st.dataframe(df_table.style.format({'Charge Capacity': '{:.2f}', 'Discharge Capacity': '{:.2f}'}))
+        # Generate data
+        output_data = []
+        for cycle in cycles_to_plot:
+            charge, discharge = predict_capacity(plot_material, plot_electrolyte, plot_device, plot_current_density, cycle)
+            
+            if value_type == 'Percentage Retention':
+                charge = (charge / initial_charge) * 100 if initial_charge > 0 else 0
+                discharge = (discharge / initial_discharge) * 100 if initial_discharge > 0 else 0
+            
+            output_data.append({'Cycles': cycle, 'Charge Capacity': charge, 'Discharge Capacity': discharge})
+        
+        df_output = pd.DataFrame(output_data)
+
+        # Convert to C/g if selected and if showing absolute values
+        if unit_choice == 'C/g' and value_type == 'Absolute Values':
+            df_output['Charge Capacity'] *= 3.6
+            df_output['Discharge Capacity'] *= 3.6
+
+        # Determine y-axis label
+        ylabel = f'Capacity ({unit_choice})' if value_type == 'Absolute Values' else 'Capacity Retention (%)'
+
+        if output_format == 'Graph':
+            st.subheader(f"Predictive Degradation Graph ({value_type})")
+            fig, ax = plt.subplots(figsize=(10, 6))
+            ax.plot(df_output['Cycles'], df_output['Charge Capacity'], marker='o', linestyle='-', markersize=4, label='Predicted Charge Capacity')
+            ax.plot(df_output['Cycles'], df_output['Discharge Capacity'], marker='s', linestyle='--', markersize=4, label='Predicted Discharge Capacity')
+            ax.set_title(f'Prediction for {plot_material} ({plot_electrolyte})', fontsize=16)
+            ax.set_xlabel('Number of Cycles Completed', fontsize=12)
+            ax.set_ylabel(ylabel, fontsize=12)
+            if value_type == 'Percentage Retention':
+                ax.set_ylim(bottom=max(0, df_output['Discharge Capacity'].min() - 5), top=105)
+            ax.legend()
+            ax.grid(True)
+            st.pyplot(fig)
+
+        elif output_format == 'Tabular Data':
+            st.subheader(f"Predictive Degradation Data Table ({value_type})")
+            st.dataframe(df_output.style.format({
+                'Charge Capacity': '{:.2f}',
+                'Discharge Capacity': '{:.2f}',
+                'Cycles': '{}'
+            }))
