@@ -1,9 +1,5 @@
 # ==============================================================================
-# CAPSTONE PROJECT: INTERACTIVE SUPERAPACITOR PREDICTOR WEB APP
-# To run:
-# 1. Open terminal in VS Code
-# 2. Activate virtual environment
-# 3. Run: streamlit run app.py
+# CAPSTONE PROJECT: INTERACTIVE SUPERAPACITOR PREDICTOR WEB APP (CORRECTED)
 # ==============================================================================
 
 import streamlit as st
@@ -13,17 +9,12 @@ import matplotlib.pyplot as plt
 import xgboost as xgb
 import numpy as np
 
-# --- CACHED MODEL TRAINING ---
-# @st.cache_resource is a special Streamlit decorator. It runs this function
-# only ONCE and then caches the result. This prevents the models from
-# retraining every time the user changes an input, making the app super fast.
 @st.cache_resource
 def load_and_train_models():
     """
     Loads the seed data, generates a large dataset, and trains the XGBoost models.
     This function is cached to run only once.
     """
-    # --- Step 1: Define Original "Ground Truth" Dataset ---
     csv_data = """
     Electrode_Material,Electrolyte_Type,Device_Type,Current_Density_Ag-1,Cycles_Completed,Charge_Capacity_mAh_g-1,Discharge_Capacity_mAh_g-1
     CuO/MnO2@MWCNT,RAE,Coin Cell,1.0,0,192.03,182.89
@@ -54,14 +45,19 @@ def load_and_train_models():
     """
     df_small = pd.read_csv(StringIO(csv_data))
 
-    # --- Step 2: Generate the Large, Smooth Dataset ---
+    # --- Generate the Large, Smooth Dataset (CORRECTED FUNCTION) ---
     def generate_large_dataset(df):
         new_data = []
         grouping_cols = ['Electrode_Material', 'Electrolyte_Type', 'Device_Type', 'Current_Density_Ag-1']
+        # Define the columns that contain the actual values
+        value_cols = ['Cycles_Completed', 'Charge_Capacity_mAh_g-1', 'Discharge_Capacity_mAh_g-1']
+        
         grouped = df.groupby(grouping_cols)
+        
         for name, group in grouped:
             start_row = group.loc[group['Cycles_Completed'].idxmin()]
             name_dict = dict(zip(grouping_cols, name))
+            
             if len(group) > 1:
                 end_row = group.loc[group['Cycles_Completed'].idxmax()]
                 max_cycles, start_charge, end_charge, start_discharge, end_discharge = (
@@ -75,12 +71,17 @@ def load_and_train_models():
                     discharge = start_discharge - discharge_drop * (cycle_ratio ** 0.9)
                     new_data.append({**name_dict, 'Cycles_Completed': cycles, 'Charge_Capacity_mAh_g-1': charge, 'Discharge_Capacity_mAh_g-1': discharge})
             else:
-                new_data.append({**name_dict, **start_row.drop(grouping_cols).to_dict()})
+                # ### CORRECTION IS HERE ###
+                # Instead of dropping columns, we explicitly select the value columns we want.
+                # This is safer and avoids the KeyError.
+                values_dict = start_row[value_cols].to_dict()
+                row_data = {**name_dict, **values_dict}
+                new_data.append(row_data)
+                
         return pd.DataFrame(new_data)
     
     df_large = generate_large_dataset(df_small)
     
-    # --- Step 3: Train XGBoost Models on the Large Dataset ---
     df_processed = pd.get_dummies(df_large, columns=['Electrode_Material', 'Electrolyte_Type', 'Device_Type'])
     features_cols = df_processed.drop(columns=['Charge_Capacity_mAh_g-1', 'Discharge_Capacity_mAh_g-1']).columns
     y_charge = df_processed['Charge_Capacity_mAh_g-1']
@@ -101,26 +102,18 @@ st.markdown("A Capstone Project to predict supercapacitor degradation using Mach
 
 # --- SIDEBAR FOR USER INPUTS ---
 st.sidebar.header("Input Parameters")
-
 material_options = ['CuO/MnO2@MWCNT', 'CuO/CoO@MWCNT', 'CuO@MWCNT', 'CuO']
 plot_material = st.sidebar.selectbox("1. Select Electrode Material", material_options)
-
 electrolyte_options = ['RAE', 'KOH']
 plot_electrolyte = st.sidebar.selectbox("2. Select Electrolyte Type", electrolyte_options)
-
 device_options = ['Coin Cell', 'Assembled_SC']
 plot_device = st.sidebar.selectbox("3. Select Device Type", device_options)
-
 plot_current_density = st.sidebar.number_input("4. Enter Current Density (A/g)", min_value=0.1, max_value=5.0, value=1.0, step=0.1)
-
 unit_choice = st.sidebar.radio("5. Select Output Units", ('mAh/g', 'C/g'))
-
 output_format = st.sidebar.radio("6. Select Output Format", ('Simple Prediction', 'Graph', 'Tabular Data'))
 
 # --- MAIN PANEL FOR DISPLAYING OUTPUTS ---
-
 def predict_capacity(material, electrolyte, device, current_density, cycles):
-    """Makes a prediction using the loaded models."""
     input_data = pd.DataFrame({'Current_Density_Ag-1': [current_density], 'Cycles_Completed': [cycles], 'Electrode_Material': [material], 'Electrolyte_Type': [electrolyte], 'Device_Type': [device]})
     input_encoded = pd.get_dummies(input_data)
     final_input = input_encoded.reindex(columns=feature_columns, fill_value=0)
@@ -129,17 +122,13 @@ def predict_capacity(material, electrolyte, device, current_density, cycles):
     return float(charge), float(discharge)
 
 # --- Logic to Display Different Outputs Based on User Choice ---
-
 if output_format == 'Simple Prediction':
     st.subheader("Simple Prediction for a Single Point")
     selected_cycles = st.slider("Select Number of Cycles to Predict", 0, 10000, 5000, 500)
-    
     charge_pred, discharge_pred = predict_capacity(plot_material, plot_electrolyte, plot_device, plot_current_density, selected_cycles)
-
     if unit_choice == 'C/g':
         charge_pred *= 3.6
         discharge_pred *= 3.6
-    
     col1, col2 = st.columns(2)
     col1.metric("Predicted Charge Capacity", f"{charge_pred:.2f} {unit_choice}")
     col2.metric("Predicted Discharge Capacity", f"{discharge_pred:.2f} {unit_choice}")
@@ -148,18 +137,14 @@ elif output_format == 'Graph':
     st.subheader("Predictive Degradation Graph")
     cycles_to_plot = list(range(0, 10001, 500))
     charges, discharges = [], []
-
     for cycle in cycles_to_plot:
         charge, discharge = predict_capacity(plot_material, plot_electrolyte, plot_device, plot_current_density, cycle)
         charges.append(charge)
         discharges.append(discharge)
-    
     df_plot = pd.DataFrame({'Cycles': cycles_to_plot, 'Charge Capacity': charges, 'Discharge Capacity': discharges})
-
     if unit_choice == 'C/g':
         df_plot['Charge Capacity'] *= 3.6
         df_plot['Discharge Capacity'] *= 3.6
-
     fig, ax = plt.subplots(figsize=(10, 6))
     ax.plot(df_plot['Cycles'], df_plot['Charge Capacity'], marker='o', linestyle='-', markersize=4, label='Predicted Charge Capacity')
     ax.plot(df_plot['Cycles'], df_plot['Discharge Capacity'], marker='s', linestyle='--', markersize=4, label='Predicted Discharge Capacity')
@@ -174,18 +159,11 @@ elif output_format == 'Tabular Data':
     st.subheader("Predictive Degradation Data Table")
     cycles_to_plot = list(range(0, 10001, 500))
     table_data = []
-
     for cycle in cycles_to_plot:
         charge, discharge = predict_capacity(plot_material, plot_electrolyte, plot_device, plot_current_density, cycle)
         table_data.append({'Cycles': cycle, 'Charge Capacity': charge, 'Discharge Capacity': discharge})
-        
     df_table = pd.DataFrame(table_data)
-
     if unit_choice == 'C/g':
         df_table['Charge Capacity'] *= 3.6
         df_table['Discharge Capacity'] *= 3.6
-    
-    st.dataframe(df_table.style.format({
-        'Charge Capacity': '{:.2f}',
-        'Discharge Capacity': '{:.2f}'
-    }))
+    st.dataframe(df_table.style.format({'Charge Capacity': '{:.2f}', 'Discharge Capacity': '{:.2f}'}))
