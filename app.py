@@ -1,7 +1,3 @@
-# ==============================================================================
-# FINAL CAPSTONE PROJECT: INTERACTIVE SUPERAPACITOR PREDICTOR WITH FULL CONTROL
-# ==============================================================================
-
 import streamlit as st
 import pandas as pd
 from io import StringIO
