@@ -1,3 +1,4 @@
+
 import streamlit as st
 import pandas as pd
 from io import StringIO
@@ -8,9 +9,6 @@ import numpy as np
 
 @st.cache_resource
 def load_and_train_models():
-    """
-    Loads the seed data, generates a large dataset, and trains the XGBoost models.
-    """
     # (The data generation and model training code is unchanged)
     degradation_scenarios = [
         {'config': {'Electrode_Material': 'CuO/MnO2@MWCNT', 'Electrolyte_Type': 'RAE', 'Device_Type': 'Coin Cell', 'Current_Density_Ag-1': 1.0}, 'start_cycles': 0, 'end_cycles': 5000, 'start_charge': 192.03, 'end_charge': 173.79, 'start_discharge': 182.89, 'end_discharge': 165.51},
@@ -61,7 +59,7 @@ st.title("🔋 Supercapacitor & Battery Technology Analyzer")
 st.markdown("A Capstone Project to predict supercapacitor performance and compare it against other energy storage technologies.")
 tab1, tab2 = st.tabs(["Supercapacitor Predictor", "Technology Comparison"])
 
-# --- TAB 1: The Supercapacitor Predictor with new features ---
+# --- TAB 1: The original Supercapacitor Predictor ---
 with tab1:
     st.header("Supercapacitor Performance Predictor")
     st.sidebar.header("1. Scenario Parameters")
@@ -122,24 +120,17 @@ with tab1:
                 ax.set_title(f'Prediction for {plot_material} ({plot_electrolyte})', fontsize=16)
                 ax.set_xlabel('Number of Cycles Completed', fontsize=12)
                 ax.set_ylabel(ylabel, fontsize=12)
-                
-                # ### FINAL POLISHING CORRECTIONS ###
                 if value_type == 'Percentage Retention':
-                    # 1. Set specific y-axis ticks for percentage view
                     ax.set_yticks(np.arange(0, 101, 10))
-                    ax.set_ylim(bottom=0, top=105) # Ensure it goes up to 100
-                
+                    ax.set_ylim(bottom=0, top=105)
                 ax.grid(True)
-                # 2. Suppress the gibberish output by assigning the legend call
-                #    to a dummy variable. This is the fix.
                 _ = ax.legend()
                 st.pyplot(fig)
-                
             elif output_format == 'Tabular Data':
                 st.subheader(f"Predictive Degradation Data Table ({value_type})")
                 st.dataframe(df_output.style.format({'Charge Capacity': '{:.2f}', 'Discharge Capacity': '{:.2f}', 'Cycles': '{}'}))
 
-# --- TAB 2: The Technology Comparison page (Unchanged) ---
+# --- TAB 2: The Technology Comparison page (with plotting bug fixed) ---
 with tab2:
     st.header("⚡ Technology Comparison Dashboard")
     st.markdown("This dashboard compares key performance metrics of our best supercapacitor against typical values for commercial Lithium-ion and emerging Sodium-ion batteries.")
@@ -150,16 +141,24 @@ with tab2:
         st.subheader("Energy Density (Wh/kg)"), st.info("How much energy is stored (higher is better).")
         fig1, ax1 = plt.subplots(figsize=(6, 5))
         bars1 = ax1.bar(df_compare['Technology'], df_compare['Energy Density (Wh/kg)'], color=['#1f77b4', '#ff7f0e', '#2ca02c'])
-        ax1.set_ylabel("Energy Density (Wh/kg)"), ax1.bar_label(bars1), st.pyplot(fig1)
+        ax1.set_ylabel("Energy Density (Wh/kg)")
+        _ = ax1.bar_label(bars1) # ### FINAL FIX: Suppress output here
+        st.pyplot(fig1)
+        
         st.subheader("Cycle Life"), st.info("How many times it can be charged (higher is better).")
         fig3, ax3 = plt.subplots(figsize=(6, 5))
         bars3 = ax3.bar(df_compare['Technology'], df_compare['Cycle Life'], color=['#1f77b4', '#ff7f0e', '#2ca02c'])
-        ax3.set_ylabel("Number of Cycles"), ax3.set_yscale('log'), ax3.bar_label(bars3), st.pyplot(fig3)
+        ax3.set_ylabel("Number of Cycles"), ax3.set_yscale('log')
+        _ = ax3.bar_label(bars3) # ### FINAL FIX: Suppress output here
+        st.pyplot(fig3)
     with col2:
         st.subheader("Power Density (W/kg)"), st.info("How quickly energy is delivered (higher is better).")
         fig2, ax2 = plt.subplots(figsize=(6, 5))
         bars2 = ax2.bar(df_compare['Technology'], df_compare['Power Density (W/kg)'], color=['#1f77b4', '#ff7f0e', '#2ca02c'])
-        ax2.set_ylabel("Power Density (W/kg)"), ax2.set_yscale('log'), ax2.bar_label(bars2), st.pyplot(fig2)
+        ax2.set_ylabel("Power Density (W/kg)"), ax2.set_yscale('log')
+        _ = ax2.bar_label(bars2) # ### FINAL FIX: Suppress output here
+        st.pyplot(fig2)
+        
         st.subheader("Qualitative Comparison"), st.info("Cost and safety are critical for real-world use.")
         qualitative_data = {'Technology': ['This Project\'s Supercapacitor', 'Lithium-ion (Li-ion)', 'Sodium-ion (Na-ion)'], 'Relative Cost': ['Medium', 'High', 'Low'], 'Safety': ['Very High', 'Medium', 'High']}
         st.dataframe(pd.DataFrame(qualitative_data))
