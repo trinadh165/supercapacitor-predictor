@@ -1,7 +1,3 @@
-# ==============================================================================
-# FINAL CAPSTONE PROJECT: V5 - WITH CUSTOMIZABLE PREDICTOR & UNCHANGED COMPARISON
-# ==============================================================================
-
 import streamlit as st
 import pandas as pd
 from io import StringIO
@@ -9,7 +5,7 @@ import matplotlib.pyplot as plt
 import xgboost as xgb
 import numpy as np
 
-# --- CACHED MODEL TRAINING (No changes here) ---
+
 @st.cache_resource
 def load_and_train_models():
     """
@@ -68,8 +64,6 @@ tab1, tab2 = st.tabs(["Supercapacitor Predictor", "Technology Comparison"])
 # --- TAB 1: The Supercapacitor Predictor with new features ---
 with tab1:
     st.header("Supercapacitor Performance Predictor")
-    
-    # --- SIDEBAR FOR USER INPUTS ---
     st.sidebar.header("1. Scenario Parameters")
     material_options = ['CuO/MnO2@MWCNT', 'CuO/CoO@MWCNT', 'CuO@MWCNT', 'CuO']
     plot_material = st.sidebar.selectbox("Select Electrode Material", material_options)
@@ -78,21 +72,16 @@ with tab1:
     device_options = ['Coin Cell', 'Assembled_SC']
     plot_device = st.sidebar.selectbox("Select Device Type", device_options)
     plot_current_density = st.sidebar.number_input("Enter Current Density (A/g)", min_value=0.1, max_value=5.0, value=1.0, step=0.1)
-
     st.sidebar.header("2. Output Configuration")
     output_format = st.sidebar.selectbox("Select Output Format", ('Graph', 'Tabular Data', 'Simple Prediction'))
     unit_choice = st.sidebar.radio("Select Output Units", ('mAh/g', 'C/g'))
-
-    # ### NEW FEATURE: Add conditional controls for cycle range and value type ###
     if output_format in ['Graph', 'Tabular Data']:
         value_type = st.sidebar.radio("Select Value Type", ('Absolute Values', 'Percentage Retention'))
-        
         st.sidebar.subheader("Define Cycle Range")
         start_cycle = st.sidebar.number_input("Start Cycles", 0, 9500, 0, 500)
         end_cycle = st.sidebar.number_input("End Cycles", 500, 10000, 10000, 500)
         step_cycle = st.sidebar.number_input("Cycle Step (Difference)", 100, 2000, 500, 100)
     
-    # --- Prediction function and main logic for Tab 1 ---
     def predict_capacity(material, electrolyte, device, current_density, cycles):
         input_data = pd.DataFrame({'Current_Density_Ag-1': [current_density], 'Cycles_Completed': [cycles], 'Electrode_Material': [material], 'Electrolyte_Type': [electrolyte], 'Device_Type': [device]})
         input_encoded = pd.get_dummies(input_data)
@@ -133,13 +122,24 @@ with tab1:
                 ax.set_title(f'Prediction for {plot_material} ({plot_electrolyte})', fontsize=16)
                 ax.set_xlabel('Number of Cycles Completed', fontsize=12)
                 ax.set_ylabel(ylabel, fontsize=12)
-                if value_type == 'Percentage Retention': ax.set_ylim(bottom=max(0, df_output['Discharge Capacity'].min() - 5), top=105)
-                ax.legend(), ax.grid(True), st.pyplot(fig)
+                
+                # ### FINAL POLISHING CORRECTIONS ###
+                if value_type == 'Percentage Retention':
+                    # 1. Set specific y-axis ticks for percentage view
+                    ax.set_yticks(np.arange(0, 101, 10))
+                    ax.set_ylim(bottom=0, top=105) # Ensure it goes up to 100
+                
+                ax.grid(True)
+                # 2. Suppress the gibberish output by assigning the legend call
+                #    to a dummy variable. This is the fix.
+                _ = ax.legend()
+                st.pyplot(fig)
+                
             elif output_format == 'Tabular Data':
                 st.subheader(f"Predictive Degradation Data Table ({value_type})")
                 st.dataframe(df_output.style.format({'Charge Capacity': '{:.2f}', 'Discharge Capacity': '{:.2f}', 'Cycles': '{}'}))
 
-# --- TAB 2: The Technology Comparison page (This entire section is UNCHANGED) ---
+# --- TAB 2: The Technology Comparison page (Unchanged) ---
 with tab2:
     st.header("⚡ Technology Comparison Dashboard")
     st.markdown("This dashboard compares key performance metrics of our best supercapacitor against typical values for commercial Lithium-ion and emerging Sodium-ion batteries.")
