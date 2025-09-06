@@ -1,6 +1,4 @@
-# ==============================================================================
-# FINAL CAPSTONE PROJECT: PREDICTOR WITH LI-ION & NA-ION COMPARISON
-# ==============================================================================
+
 
 import streamlit as st
 import pandas as pd
@@ -9,7 +7,7 @@ import matplotlib.pyplot as plt
 import xgboost as xgb
 import numpy as np
 
-# --- CACHED MODEL TRAINING (No changes here) ---
+
 @st.cache_resource
 def load_and_train_models():
     """
