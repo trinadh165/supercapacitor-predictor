@@ -62,14 +62,12 @@ st.set_page_config(layout="wide")
 st.title("🔋 Supercapacitor & Battery Technology Analyzer")
 st.markdown("A Capstone Project to predict supercapacitor performance and compare it against other energy storage technologies.")
 
-# ### NEW FEATURE: Create a tabbed interface ###
+# --- Tabbed interface ---
 tab1, tab2 = st.tabs(["Supercapacitor Predictor", "Technology Comparison"])
 
 # --- TAB 1: The original Supercapacitor Predictor ---
 with tab1:
     st.header("Supercapacitor Performance Predictor")
-    
-    # --- SIDEBAR FOR USER INPUTS ---
     st.sidebar.header("1. Scenario Parameters")
     material_options = ['CuO/MnO2@MWCNT', 'CuO/CoO@MWCNT', 'CuO@MWCNT', 'CuO']
     plot_material = st.sidebar.selectbox("Select Electrode Material", material_options)
@@ -90,8 +88,8 @@ with tab1:
         end_cycle = st.sidebar.number_input("End Cycles", 500, 10000, 10000, 500)
         step_cycle = st.sidebar.number_input("Cycle Step (Difference)", 100, 2000, 500, 100)
     
-    # --- Prediction function and main logic for Tab 1 ---
     def predict_capacity(material, electrolyte, device, current_density, cycles):
+        # (Prediction function is unchanged)
         input_data = pd.DataFrame({'Current_Density_Ag-1': [current_density], 'Cycles_Completed': [cycles], 'Electrode_Material': [material], 'Electrolyte_Type': [electrolyte], 'Device_Type': [device]})
         input_encoded = pd.get_dummies(input_data)
         final_input = input_encoded.reindex(columns=feature_columns, fill_value=0)
@@ -99,26 +97,21 @@ with tab1:
         discharge = discharge_model_xgb.predict(final_input)[0]
         return float(charge), float(discharge)
 
+    # (Main logic for Tab 1 is unchanged)
     if output_format == 'Simple Prediction':
-        # ... (Simple Prediction logic is unchanged)
         st.subheader("Simple Prediction for a Single Point")
         selected_cycles = st.slider("Select Number of Cycles to Predict", 0, 10000, 5000, 500, key="slider_tab1")
         charge_pred, discharge_pred = predict_capacity(plot_material, plot_electrolyte, plot_device, plot_current_density, selected_cycles)
-        if unit_choice == 'C/g':
-            charge_pred *= 3.6
-            discharge_pred *= 3.6
+        if unit_choice == 'C/g': charge_pred *= 3.6; discharge_pred *= 3.6
         col1, col2 = st.columns(2)
         col1.metric("Predicted Charge Capacity", f"{charge_pred:.2f} {unit_choice}")
         col2.metric("Predicted Discharge Capacity", f"{discharge_pred:.2f} {unit_choice}")
-
     else:
-        if start_cycle >= end_cycle:
-            st.error("Error: 'Start Cycles' must be less than 'End Cycles'.")
+        if start_cycle >= end_cycle: st.error("Error: 'Start Cycles' must be less than 'End Cycles'.")
         else:
             cycles_to_plot = list(range(start_cycle, end_cycle + 1, step_cycle))
             initial_charge, initial_discharge = 1, 1
-            if value_type == 'Percentage Retention':
-                initial_charge, initial_discharge = predict_capacity(plot_material, plot_electrolyte, plot_device, plot_current_density, 0)
+            if value_type == 'Percentage Retention': initial_charge, initial_discharge = predict_capacity(plot_material, plot_electrolyte, plot_device, plot_current_density, 0)
             output_data = []
             for cycle in cycles_to_plot:
                 charge, discharge = predict_capacity(plot_material, plot_electrolyte, plot_device, plot_current_density, cycle)
@@ -127,11 +120,8 @@ with tab1:
                     discharge = (discharge / initial_discharge) * 100 if initial_discharge > 0 else 0
                 output_data.append({'Cycles': cycle, 'Charge Capacity': charge, 'Discharge Capacity': discharge})
             df_output = pd.DataFrame(output_data)
-            if unit_choice == 'C/g' and value_type == 'Absolute Values':
-                df_output['Charge Capacity'] *= 3.6
-                df_output['Discharge Capacity'] *= 3.6
+            if unit_choice == 'C/g' and value_type == 'Absolute Values': df_output['Charge Capacity'] *= 3.6; df_output['Discharge Capacity'] *= 3.6
             ylabel = f'Capacity ({unit_choice})' if value_type == 'Absolute Values' else 'Capacity Retention (%)'
-
             if output_format == 'Graph':
                 st.subheader(f"Predictive Degradation Graph ({value_type})")
                 fig, ax = plt.subplots(figsize=(10, 6))
@@ -140,25 +130,19 @@ with tab1:
                 ax.set_title(f'Prediction for {plot_material} ({plot_electrolyte})', fontsize=16)
                 ax.set_xlabel('Number of Cycles Completed', fontsize=12)
                 ax.set_ylabel(ylabel, fontsize=12)
-                if value_type == 'Percentage Retention':
-                    ax.set_ylim(bottom=max(0, df_output['Discharge Capacity'].min() - 5), top=105)
+                if value_type == 'Percentage Retention': ax.set_ylim(bottom=max(0, df_output['Discharge Capacity'].min() - 5), top=105)
                 ax.legend(), ax.grid(True), st.pyplot(fig)
-
             elif output_format == 'Tabular Data':
                 st.subheader(f"Predictive Degradation Data Table ({value_type})")
                 st.dataframe(df_output.style.format({'Charge Capacity': '{:.2f}', 'Discharge Capacity': '{:.2f}', 'Cycles': '{}'}))
 
-# --- TAB 2: The new Technology Comparison page ---
+# ### NEW FEATURE: Rewritten Tab 2 with individual graphs ###
 with tab2:
     st.header("⚡ Technology Comparison Dashboard")
-    st.markdown("This dashboard compares the predicted performance of our best supercapacitor against typical values for commercial Lithium-ion and emerging Sodium-ion batteries. The data for Li-ion and Na-ion is based on representative industry and research data.")
+    st.markdown("This dashboard compares key performance metrics of our best supercapacitor against typical values for commercial Lithium-ion and emerging Sodium-ion batteries.")
 
-    # --- Data for comparison (gathered from general knowledge) ---
-    # Representative data for OUR best supercapacitor from the seed data
-    # Energy Density = 27.53 Wh/kg, Power Density = 1875 W/kg (from Paper 2)
-    # Cycle life is typically > 50,000 for supercapacitors
     comparison_data = {
-        'Technology': ['This Project\'s Supercapacitor', 'Lithium-ion (Li-ion) Battery', 'Sodium-ion (Na-ion) Battery'],
+        'Technology': ['This Project\'s Supercapacitor', 'Lithium-ion (Li-ion)', 'Sodium-ion (Na-ion)'],
         'Energy Density (Wh/kg)': [27.53, 150, 120],
         'Power Density (W/kg)': [1875, 300, 200],
         'Cycle Life': [50000, 1000, 2000],
@@ -167,22 +151,46 @@ with tab2:
     }
     df_compare = pd.DataFrame(comparison_data)
 
-    # --- Ragone Plot ---
-    st.subheader("Ragone Plot (Energy vs. Power)")
-    st.info("This plot is a standard way to compare energy storage devices. Ideal devices are in the top right.")
-    
-    fig, ax = plt.subplots(figsize=(10, 7))
-    for i, row in df_compare.iterrows():
-        ax.loglog(row['Energy Density (Wh/kg)'], row['Power Density (W/kg)'], 'o', markersize=15, label=row['Technology'])
-        ax.text(row['Energy Density (Wh/kg)'] * 1.1, row['Power Density (W/kg)'], row['Technology'], fontsize=12)
+    # --- Create Bar Charts in a 2x2 grid ---
+    col1, col2 = st.columns(2)
 
-    ax.set_xlabel('Energy Density (Wh/kg) - How long it lasts', fontsize=12)
-    ax.set_ylabel('Power Density (W/kg) - How fast it is', fontsize=12)
-    ax.set_title('Ragone Plot of Energy Storage Technologies', fontsize=16)
-    ax.grid(True, which="both", ls="--")
-    ax.legend()
-    st.pyplot(fig)
+    with col1:
+        # --- Graph 1: Energy Density ---
+        st.subheader("Energy Density (Wh/kg)")
+        st.info("How much energy is stored (higher is better).")
+        fig1, ax1 = plt.subplots(figsize=(6, 5))
+        bars1 = ax1.bar(df_compare['Technology'], df_compare['Energy Density (Wh/kg)'], color=['#1f77b4', '#ff7f0e', '#2ca02c'])
+        ax1.set_ylabel("Energy Density (Wh/kg)")
+        ax1.bar_label(bars1) # Add data labels
+        st.pyplot(fig1)
 
-    # --- Data Table ---
-    st.subheader("Comparative Data Table")
+        # --- Graph 3: Cycle Life ---
+        st.subheader("Cycle Life")
+        st.info("How many times it can be charged (higher is better).")
+        fig3, ax3 = plt.subplots(figsize=(6, 5))
+        bars3 = ax3.bar(df_compare['Technology'], df_compare['Cycle Life'], color=['#1f77b4', '#ff7f0e', '#2ca02c'])
+        ax3.set_ylabel("Number of Cycles")
+        ax3.set_yscale('log') # Use log scale due to huge differences
+        ax3.bar_label(bars3)
+        st.pyplot(fig3)
+
+    with col2:
+        # --- Graph 2: Power Density ---
+        st.subheader("Power Density (W/kg)")
+        st.info("How quickly energy is delivered (higher is better).")
+        fig2, ax2 = plt.subplots(figsize=(6, 5))
+        bars2 = ax2.bar(df_compare['Technology'], df_compare['Power Density (W/kg)'], color=['#1f77b4', '#ff7f0e', '#2ca02c'])
+        ax2.set_ylabel("Power Density (W/kg)")
+        ax2.set_yscale('log') # Use log scale due to huge differences
+        ax2.bar_label(bars2)
+        st.pyplot(fig2)
+
+        # --- Graph 4: Relative Cost & Safety ---
+        st.subheader("Qualitative Comparison")
+        st.info("Cost and safety are critical for real-world use.")
+        # We can just display this part of the table
+        st.dataframe(df_compare[['Technology', 'Relative Cost', 'Safety']])
+
+    # --- Full Data Table at the end ---
+    st.subheader("Full Comparative Data Table")
     st.dataframe(df_compare)
