@@ -1,7 +1,3 @@
-# ==============================================================================
-# FINAL CAPSTONE PROJECT: V24 - WITH DETAILED CAPACITOR VS. SUPERCAPACITOR TAB
-# ==============================================================================
-
 import streamlit as st
 import pandas as pd
 from io import StringIO
@@ -9,10 +5,8 @@ import matplotlib.pyplot as plt
 import xgboost as xgb
 import numpy as np
 
-# --- CACHED MODEL TRAINING (No changes here) ---
 @st.cache_resource
 def load_and_train_models():
-    # ... (The data generation and model training code is unchanged)
     degradation_scenarios = [
         {'config': {'Electrode_Material': 'CuO/MnO2@MWCNT', 'Electrolyte_Type': 'RAE', 'Device_Type': 'Coin Cell', 'Current_Density_Ag-1': 1.0}, 'start_cycles': 0, 'end_cycles': 5000, 'start_charge': 192.03, 'end_charge': 173.79, 'start_discharge': 182.89, 'end_discharge': 165.51},
         {'config': {'Electrode_Material': 'CuO/MnO2@MWCNT', 'Electrolyte_Type': 'KOH', 'Device_Type': 'Coin Cell', 'Current_Density_Ag-1': 1.0}, 'start_cycles': 0, 'end_cycles': 5000, 'start_charge': 71.53, 'end_charge': 58.59, 'start_discharge': 68.12, 'end_discharge': 55.80},
@@ -62,7 +56,7 @@ st.title("🔋 Supercapacitor & Battery Technology Analyzer")
 st.markdown("A Capstone Project to predict supercapacitor performance and compare it against other energy storage technologies.")
 
 # ### NEW FEATURE: Added a fourth tab ###
-tab1, tab2, tab3, tab4 = st.tabs(["Supercapacitor Predictor", "Technology Comparison", "Training Dataset", "Capacitor vs. Supercapacitor"])
+tab1, tab2, tab3, tab4 = st.tabs(["Supercapacitor Predictor", "General Comparison", "Training Dataset", "Detailed Comparison"])
 
 # --- TAB 1: The Supercapacitor Predictor ---
 with tab1:
@@ -166,60 +160,72 @@ with tab3:
     st.markdown("This table displays the **complete, synthetically generated dataset** that was used to train the XGBoost predictive models.")
     st.dataframe(df_training_data)
 
-# ### NEW FEATURE: A fourth tab for Capacitor vs. Supercapacitor ###
+# ### NEW FEATURE: A fourth tab for Detailed Comparison ###
 with tab4:
-    st.header("⚡ Capacitor vs. Supercapacitor: A Detailed Comparison")
-    st.markdown("While both are called 'capacitors', their properties and ideal applications are vastly different. This dashboard highlights the key trade-offs between them.")
+    st.header("⚙️ Detailed Technology Comparison")
+    st.markdown("This dashboard provides a detailed, side-by-side comparison of the key performance metrics for all four energy storage technologies.")
 
     # --- Data for detailed comparison ---
-    cap_vs_supercap_data = {
+    detailed_comparison_data = {
         'Metric': [
             "Specific Capacitance (F/g)",
             "Energy Density (Wh/kg)",
             "Power Density (W/kg)",
-            "Equivalent Series Resistance (ESR)",
+            "Cycle Life",
             "Charge Time",
-            "Cycle Life"
+            "Energy Storage Mechanism"
         ],
         'Conventional Capacitor': [
-            "~0.1 (in milliFarads)",
+            "Very Low (~0.0001)",
             "< 0.1",
             "> 10,000",
-            "Very Low (micro-Ohms to milli-Ohms)",
+            "> 1,000,000",
             "Milliseconds",
-            "> 1,000,000 (Effectively Infinite)"
+            "Physical (Electric Field)"
         ],
         'This Project\'s Supercapacitor': [
-            "100 - 1,200",
+            "High (100 - 1,200)",
             "~27.5",
             "~1,875",
-            "Low (milli-Ohms to Ohms)",
+            "> 50,000",
             "Seconds to Minutes",
-            "> 50,000"
+            "Physical & Chemical (EDLC + Faradaic)"
+        ],
+        'Lithium-ion (Li-ion) Battery': [
+            "N/A (Not a capacitor)",
+            "~150",
+            "~300",
+            "~1,000",
+            "Hours",
+            "Chemical (Intercalation)"
+        ],
+        'Sodium-ion (Na-ion) Battery': [
+            "N/A (Not a capacitor)",
+            "~120",
+            "~200",
+            "~2,000",
+            "Hours",
+            "Chemical (Intercalation)"
         ]
     }
-    df_cap_compare = pd.DataFrame(cap_vs_supercap_data)
+    df_detailed_compare = pd.DataFrame(detailed_comparison_data)
 
     st.subheader("Key Performance Metrics")
-    st.markdown("Notice the enormous differences in scale for each metric.")
-    st.table(df_cap_compare)
-
+    st.markdown("This table highlights the fundamental trade-offs between these devices. Notice the orders-of-magnitude differences.")
+    st.table(df_detailed_compare.set_index('Metric'))
+    
     st.subheader("Core Differences Explained")
     
-    col1, col2 = st.columns(2)
+    col1, col2, col3, col4 = st.columns(4)
     with col1:
         st.info("#### Conventional Capacitor")
-        st.markdown("""
-        - **Energy Storage:** Stores energy in a purely physical **Electric Field** between two conductive plates. No chemical reactions occur.
-        - **Strength:** Extremely high power density. It can release its very small amount of energy almost instantly.
-        - **Weakness:** Very low energy density. It cannot store enough energy to power a device for a meaningful amount of time.
-        - **Primary Use:** Filtering electrical noise, smoothing voltages, and providing tiny bursts of power in electronic circuits.
-        """)
+        st.markdown("- **Strength:** Extremely high power density (instant speed).\n- **Weakness:** Negligible energy storage.")
     with col2:
-        st.warning("#### Supercapacitor (EDLC)")
-        st.markdown("""
-        - **Energy Storage:** Uses a hybrid mechanism. It forms a physical **Electric Double-Layer** at the electrode-electrolyte interface, which acts like a capacitor with a massive surface area. It also has some **Faradaic (chemical)** reactions.
-        - **Strength:** Bridges the gap between capacitors and batteries. It has far more energy storage than a capacitor and far more power and durability than a battery.
-        - **Weakness:** Has less energy storage than a battery.
-        - **Primary Use:** Applications requiring high power, rapid charging, and long cycle life.
-        """)
+        st.warning("#### Supercapacitor")
+        st.markdown("- **Strength:** Bridges the gap. High power, very long life, and more energy than a capacitor.\n- **Weakness:** Less energy than a battery.")
+    with col3:
+        st.error("#### Lithium-ion Battery")
+        st.markdown("- **Strength:** High energy density (long runtime).\n- **Weakness:** Slower, shorter life, and higher cost/safety concerns.")
+    with col4:
+        st.success("#### Sodium-ion Battery")
+        st.markdown("- **Strength:** Very low cost and high safety.\n- **Weakness:** Lower energy and power than Li-ion.")
