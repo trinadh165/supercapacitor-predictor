@@ -1,5 +1,5 @@
 # ==============================================================================
-# FINAL CAPSTONE PROJECT: V23 - WITH FULL CAPACITOR COMPARISON
+# FINAL CAPSTONE PROJECT: V24 - WITH DETAILED CAPACITOR VS. SUPERCAPACITOR TAB
 # ==============================================================================
 
 import streamlit as st
@@ -60,7 +60,9 @@ charge_model_xgb, discharge_model_xgb, feature_columns, df_training_data = load_
 st.set_page_config(layout="wide")
 st.title("🔋 Supercapacitor & Battery Technology Analyzer")
 st.markdown("A Capstone Project to predict supercapacitor performance and compare it against other energy storage technologies.")
-tab1, tab2, tab3 = st.tabs(["Supercapacitor Predictor", "Technology Comparison", "Training Dataset"])
+
+# ### NEW FEATURE: Added a fourth tab ###
+tab1, tab2, tab3, tab4 = st.tabs(["Supercapacitor Predictor", "Technology Comparison", "Training Dataset", "Capacitor vs. Supercapacitor"])
 
 # --- TAB 1: The Supercapacitor Predictor ---
 with tab1:
@@ -123,93 +125,101 @@ with tab1:
                 if value_type == 'Percentage Retention':
                     ax.set_yticks(np.arange(0, 101, 10))
                     ax.set_ylim(bottom=0, top=105)
-                ax.grid(True)
-                _ = ax.legend()
-                st.pyplot(fig)
+                ax.grid(True); _ = ax.legend(); st.pyplot(fig)
             elif output_format == 'Tabular Data':
                 st.subheader(f"Predictive Degradation Data Table ({value_type})")
                 st.dataframe(df_output.style.format({'Charge Capacity': '{:.2f}', 'Discharge Capacity': '{:.2f}', 'Cycles': '{}'}))
 
-# --- TAB 2: The Technology Comparison page (UPDATED) ---
+# --- TAB 2: The General Technology Comparison page ---
 with tab2:
-    st.header("⚡ Technology Comparison Dashboard")
+    # (Code for Tab 2 is unchanged)
+    st.header("⚡ General Technology Comparison Dashboard")
     st.markdown("This dashboard compares key performance metrics across the full spectrum of energy storage technologies.")
-    
-    # ### NEW: Added Conventional Capacitor to the data ###
-    comparison_data = {
-        'Technology': ['Conventional Capacitor', 'This Project\'s Supercapacitor', 'Lithium-ion (Li-ion)', 'Sodium-ion (Na-ion)'],
-        'Energy Density (Wh/kg)': [0.01, 27.53, 150, 120],
-        'Power Density (W/kg)': [10000, 1875, 300, 200],
-        'Cycle Life': [1000000, 50000, 1000, 2000]
-    }
+    comparison_data = {'Technology': ['Conventional Capacitor', 'This Project\'s Supercapacitor', 'Lithium-ion (Li-ion)', 'Sodium-ion (Na-ion)'], 'Energy Density (Wh/kg)': [0.01, 27.53, 150, 120], 'Power Density (W/kg)': [10000, 1875, 300, 200], 'Cycle Life': [1000000, 50000, 1000, 2000]}
     df_compare = pd.DataFrame(comparison_data)
-    
-    # Use custom colors for 4 items
-    colors = ['#d62728', '#1f77b4', '#ff7f0e', '#2ca02c'] # Red, Blue, Orange, Green
-
+    colors = ['#d62728', '#1f77b4', '#ff7f0e', '#2ca02c']
     col1, col2 = st.columns(2)
     with col1:
-        st.subheader("Energy Density (Wh/kg)")
-        st.info("How much energy is stored (higher is better).")
-        fig1, ax1 = plt.subplots(figsize=(6, 5))
-        bars1 = ax1.bar(df_compare['Technology'], df_compare['Energy Density (Wh/kg)'], color=colors)
-        ax1.set_ylabel("Energy Density (Wh/kg)")
-        ax1.set_yscale('log')
-        _ = ax1.bar_label(bars1)
-        st.pyplot(fig1)
-        
-        st.subheader("Cycle Life")
-        st.info("How many times it can be charged (higher is better).")
-        fig3, ax3 = plt.subplots(figsize=(6, 5))
-        bars3 = ax3.bar(df_compare['Technology'], df_compare['Cycle Life'], color=colors)
-        ax3.set_ylabel("Number of Cycles")
-        ax3.set_yscale('log')
-        _ = ax3.bar_label(bars3)
-        st.pyplot(fig3)
+        st.subheader("Energy Density (Wh/kg)"); st.info("How much energy is stored (higher is better).")
+        fig1, ax1 = plt.subplots(figsize=(6, 5)); bars1 = ax1.bar(df_compare['Technology'], df_compare['Energy Density (Wh/kg)'], color=colors); ax1.set_ylabel("Energy Density (Wh/kg)"); ax1.set_yscale('log'); _ = ax1.bar_label(bars1); st.pyplot(fig1)
+        st.subheader("Cycle Life"); st.info("How many times it can be charged (higher is better).")
+        fig3, ax3 = plt.subplots(figsize=(6, 5)); bars3 = ax3.bar(df_compare['Technology'], df_compare['Cycle Life'], color=colors); ax3.set_ylabel("Number of Cycles"); ax3.set_yscale('log'); _ = ax3.bar_label(bars3); st.pyplot(fig3)
     with col2:
-        st.subheader("Power Density (W/kg)")
-        st.info("How quickly energy is delivered (higher is better).")
-        fig2, ax2 = plt.subplots(figsize=(6, 5))
-        bars2 = ax2.bar(df_compare['Technology'], df_compare['Power Density (W/kg)'], color=colors)
-        ax2.set_ylabel("Power Density (W/kg)")
-        ax2.set_yscale('log')
-        _ = ax2.bar_label(bars2)
-        st.pyplot(fig2)
-
-        st.subheader("Qualitative Comparison")
-        st.info("Charge time and safety are critical for real-world use.")
-        qualitative_data = {
-            'Technology': ['Conventional Capacitor', 'This Project\'s Supercapacitor', 'Lithium-ion (Li-ion)', 'Sodium-ion (Na-ion)'],
-            'Charge Time': ['Milliseconds', 'Seconds', 'Hours', 'Hours'],
-            'Safety': ['Extremely High', 'Very High', 'Medium', 'High']
-        }
+        st.subheader("Power Density (W/kg)"); st.info("How quickly energy is delivered (higher is better).")
+        fig2, ax2 = plt.subplots(figsize=(6, 5)); bars2 = ax2.bar(df_compare['Technology'], df_compare['Power Density (W/kg)'], color=colors); ax2.set_ylabel("Power Density (W/kg)"); ax2.set_yscale('log'); _ = ax2.bar_label(bars2); st.pyplot(fig2)
+        st.subheader("Qualitative Comparison"); st.info("Charge time and safety are critical for real-world use.")
+        qualitative_data = {'Technology': ['Conventional Capacitor', 'This Project\'s Supercapacitor', 'Lithium-ion (Li-ion)', 'Sodium-ion (Na-ion)'], 'Charge Time': ['Milliseconds', 'Seconds', 'Hours', 'Hours'], 'Safety': ['Extremely High', 'Very High', 'Medium', 'High']}
         st.dataframe(pd.DataFrame(qualitative_data))
-        
     st.divider()
     st.header("The Verdict: Which Technology is Best?")
     st.markdown("There is no single 'best' technology. The ideal choice depends entirely on the application's priorities.")
-    
-    # ### NEW: A 4-column layout for the verdict ###
     c1, c2, c3, c4 = st.columns(4)
-    with c1:
-        st.subheader("⚡ Capacitor")
-        st.markdown("**Best for: Instantaneous Power**")
-        st.success("**Use Case:** Signal filtering, camera flashes.")
-    with c2:
-        st.subheader("🚀 Supercapacitor")
-        st.markdown("**Best for: Speed & Durability**")
-        st.success("**Use Case:** Regenerative braking, backup power.")
-    with c3:
-        st.subheader("🏆 Lithium-ion (Li-ion)")
-        st.markdown("**Best for: High Energy Storage**")
-        st.success("**Use Case:** Electric vehicles, smartphones.")
-    with c4:
-        st.subheader("💰 Sodium-ion (Na-ion)")
-        st.markdown("**Best for: Low Cost & Stationary**")
-        st.success("**Use Case:** Home energy storage, grid backup.")
+    with c1: st.subheader("⚡ Capacitor"); st.markdown("**Best for: Instantaneous Power**"); st.success("**Use Case:** Signal filtering, camera flashes.")
+    with c2: st.subheader("🚀 Supercapacitor"); st.markdown("**Best for: Speed & Durability**"); st.success("**Use Case:** Regenerative braking, backup power.")
+    with c3: st.subheader("🏆 Lithium-ion (Li-ion)"); st.markdown("**Best for: High Energy Storage**"); st.success("**Use Case:** Electric vehicles, smartphones.")
+    with c4: st.subheader("💰 Sodium-ion (Na-ion)"); st.markdown("**Best for: Low Cost & Stationary**"); st.success("**Use Case:** Home energy storage, grid backup.")
 
 # --- TAB 3: The Training Dataset Viewer ---
 with tab3:
+    # (Code for Tab 3 is unchanged)
     st.header("📊 Supercapacitor Model Training Dataset")
     st.markdown("This table displays the **complete, synthetically generated dataset** that was used to train the XGBoost predictive models.")
     st.dataframe(df_training_data)
+
+# ### NEW FEATURE: A fourth tab for Capacitor vs. Supercapacitor ###
+with tab4:
+    st.header("⚡ Capacitor vs. Supercapacitor: A Detailed Comparison")
+    st.markdown("While both are called 'capacitors', their properties and ideal applications are vastly different. This dashboard highlights the key trade-offs between them.")
+
+    # --- Data for detailed comparison ---
+    cap_vs_supercap_data = {
+        'Metric': [
+            "Specific Capacitance (F/g)",
+            "Energy Density (Wh/kg)",
+            "Power Density (W/kg)",
+            "Equivalent Series Resistance (ESR)",
+            "Charge Time",
+            "Cycle Life"
+        ],
+        'Conventional Capacitor': [
+            "~0.1 (in milliFarads)",
+            "< 0.1",
+            "> 10,000",
+            "Very Low (micro-Ohms to milli-Ohms)",
+            "Milliseconds",
+            "> 1,000,000 (Effectively Infinite)"
+        ],
+        'This Project\'s Supercapacitor': [
+            "100 - 1,200",
+            "~27.5",
+            "~1,875",
+            "Low (milli-Ohms to Ohms)",
+            "Seconds to Minutes",
+            "> 50,000"
+        ]
+    }
+    df_cap_compare = pd.DataFrame(cap_vs_supercap_data)
+
+    st.subheader("Key Performance Metrics")
+    st.markdown("Notice the enormous differences in scale for each metric.")
+    st.table(df_cap_compare)
+
+    st.subheader("Core Differences Explained")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.info("#### Conventional Capacitor")
+        st.markdown("""
+        - **Energy Storage:** Stores energy in a purely physical **Electric Field** between two conductive plates. No chemical reactions occur.
+        - **Strength:** Extremely high power density. It can release its very small amount of energy almost instantly.
+        - **Weakness:** Very low energy density. It cannot store enough energy to power a device for a meaningful amount of time.
+        - **Primary Use:** Filtering electrical noise, smoothing voltages, and providing tiny bursts of power in electronic circuits.
+        """)
+    with col2:
+        st.warning("#### Supercapacitor (EDLC)")
+        st.markdown("""
+        - **Energy Storage:** Uses a hybrid mechanism. It forms a physical **Electric Double-Layer** at the electrode-electrolyte interface, which acts like a capacitor with a massive surface area. It also has some **Faradaic (chemical)** reactions.
+        - **Strength:** Bridges the gap between capacitors and batteries. It has far more energy storage than a capacitor and far more power and durability than a battery.
+        - **Weakness:** Has less energy storage than a battery.
+        - **Primary Use:** Applications requiring high power, rapid charging, and long cycle life.
+        """)
