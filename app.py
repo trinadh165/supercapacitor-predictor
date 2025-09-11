@@ -1,5 +1,5 @@
 # ==============================================================================
-# FINAL CAPSTONE PROJECT: V20 - WITH COULOMBIC EFFICIENCY PROOF
+# FINAL CAPSTONE PROJECT: V22 - CAPACITOR COMPARISON RESTORED
 # ==============================================================================
 
 import streamlit as st
@@ -12,8 +12,10 @@ import numpy as np
 # --- CACHED MODEL TRAINING (No changes here) ---
 @st.cache_resource
 def load_and_train_models():
-    # (The data generation and model training code is unchanged)
-    # ... (omitting for brevity, it's the same as the last version)
+    """
+    Loads data, generates the large dataset, and trains the models.
+    """
+    # ... (The data generation and model training code is unchanged)
     degradation_scenarios = [
         {'config': {'Electrode_Material': 'CuO/MnO2@MWCNT', 'Electrolyte_Type': 'RAE', 'Device_Type': 'Coin Cell', 'Current_Density_Ag-1': 1.0}, 'start_cycles': 0, 'end_cycles': 5000, 'start_charge': 192.03, 'end_charge': 173.79, 'start_discharge': 182.89, 'end_discharge': 165.51},
         {'config': {'Electrode_Material': 'CuO/MnO2@MWCNT', 'Electrolyte_Type': 'KOH', 'Device_Type': 'Coin Cell', 'Current_Density_Ag-1': 1.0}, 'start_cycles': 0, 'end_cycles': 5000, 'start_charge': 71.53, 'end_charge': 58.59, 'start_discharge': 68.12, 'end_discharge': 55.80},
@@ -52,19 +54,21 @@ def load_and_train_models():
     y_charge, y_discharge = df_processed['Charge_Capacity_mAh_g-1'], df_processed['Discharge_Capacity_mAh_g-1']
     charge_model = xgb.XGBRegressor(n_estimators=100, random_state=42).fit(df_processed[features_cols], y_charge)
     discharge_model = xgb.XGBRegressor(n_estimators=100, random_state=42).fit(df_processed[features_cols], y_discharge)
-    return charge_model, discharge_model, features_cols
+    return charge_model, discharge_model, features_cols, df_large
 
-# --- Load the models ---
-charge_model_xgb, discharge_model_xgb, feature_columns = load_and_train_models()
+# --- Load models and the large dataset ---
+charge_model_xgb, discharge_model_xgb, feature_columns, df_training_data = load_and_train_models()
 
 # --- WEB APPLICATION INTERFACE ---
 st.set_page_config(layout="wide")
 st.title("🔋 Supercapacitor & Battery Technology Analyzer")
 st.markdown("A Capstone Project to predict supercapacitor performance and compare it against other energy storage technologies.")
-tab1, tab2 = st.tabs(["Supercapacitor Predictor", "Technology Comparison"]) # Removed other tabs for clarity
+
+tab1, tab2, tab3 = st.tabs(["Supercapacitor Predictor", "Technology Comparison", "Training Dataset"])
 
 # --- TAB 1: The Supercapacitor Predictor ---
 with tab1:
+    # (The code for Tab 1 is unchanged)
     st.header("Supercapacitor Performance Predictor")
     st.sidebar.header("1. Scenario Parameters")
     material_options = ['CuO/MnO2@MWCNT', 'CuO/CoO@MWCNT', 'CuO@MWCNT', 'CuO']
@@ -76,6 +80,14 @@ with tab1:
     plot_current_density = st.sidebar.number_input("Enter Current Density (A/g)", min_value=0.1, max_value=5.0, value=1.0, step=0.1)
     st.sidebar.header("2. Output Configuration")
     output_format = st.sidebar.selectbox("Select Output Format", ('Graph', 'Tabular Data', 'Simple Prediction'))
+    if output_format == 'Simple Prediction':
+        st.subheader("Simple Prediction for a Single Point")
+        selected_cycles = st.slider("Select Number of Cycles to Predict", 0, 10000, 5000, 500, key="slider_tab1")
+    else: # For Graph and Table
+        st.sidebar.subheader("Define Cycle Range")
+        start_cycle = st.sidebar.number_input("Start Cycles", 0, 9500, 0, 500)
+        end_cycle = st.sidebar.number_input("End Cycles", 500, 10000, 10000, 500)
+        step_cycle = st.sidebar.number_input("Cycle Step (Difference)", 100, 2000, 500, 100)
     
     def predict_capacity(material, electrolyte, device, current_density, cycles):
         input_data = pd.DataFrame({'Current_Density_Ag-1': [current_density], 'Cycles_Completed': [cycles], 'Electrode_Material': [material], 'Electrolyte_Type': [electrolyte], 'Device_Type': [device]})
@@ -84,28 +96,16 @@ with tab1:
         charge, discharge = charge_model_xgb.predict(final_input)[0], discharge_model_xgb.predict(final_input)[0]
         return float(charge), float(discharge)
 
-    # ### NEW FEATURE: Calculate and display Coulombic Efficiency ###
     if output_format == 'Simple Prediction':
-        st.subheader("Simple Prediction for a Single Point")
-        selected_cycles = st.slider("Select Number of Cycles to Predict", 0, 10000, 5000, 500, key="slider_tab1")
         charge_pred, discharge_pred = predict_capacity(plot_material, plot_electrolyte, plot_device, plot_current_density, selected_cycles)
-        
-        # Calculate Coulombic Efficiency
         efficiency = (discharge_pred / charge_pred) * 100 if charge_pred > 0 else 0
-        
         col1, col2, col3 = st.columns(3)
         col1.metric("Predicted Charge Capacity (mAh/g)", f"{charge_pred:.2f}")
         col2.metric("Predicted Discharge Capacity (mAh/g)", f"{discharge_pred:.2f}")
         col3.metric("Coulombic Efficiency", f"{efficiency:.2f} %")
-
-    else: # Handles Graph and Tabular Data
-        st.sidebar.subheader("Define Cycle Range")
-        start_cycle = st.sidebar.number_input("Start Cycles", 0, 9500, 0, 500)
-        end_cycle = st.sidebar.number_input("End Cycles", 500, 10000, 10000, 500)
-        step_cycle = st.sidebar.number_input("Cycle Step (Difference)", 100, 2000, 500, 100)
-
-        if start_cycle >= end_cycle:
-            st.error("Error: 'Start Cycles' must be less than 'End Cycles'.")
+    
+    elif output_format in ['Graph', 'Tabular Data']:
+        if start_cycle >= end_cycle: st.error("Error: 'Start Cycles' must be less than 'End Cycles'.")
         else:
             cycles_to_plot = list(range(start_cycle, end_cycle + 1, step_cycle))
             output_data = []
@@ -113,69 +113,109 @@ with tab1:
                 charge, discharge = predict_capacity(plot_material, plot_electrolyte, plot_device, plot_current_density, cycle)
                 efficiency = (discharge / charge) * 100 if charge > 0 else 0
                 output_data.append({'Cycles': cycle, 'Charge Capacity (mAh/g)': charge, 'Discharge Capacity (mAh/g)': discharge, 'Coulombic Efficiency (%)': efficiency})
-            
             df_output = pd.DataFrame(output_data)
 
             if output_format == 'Graph':
-                st.subheader("Predictive Degradation Graph")
-                # Create two separate graphs for capacity and efficiency
+                st.subheader("Predictive Degradation and Efficiency Graphs")
                 fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 10), sharex=True)
-                
-                # Plot 1: Capacity
                 ax1.plot(df_output['Cycles'], df_output['Charge Capacity (mAh/g)'], marker='o', linestyle='-', markersize=4, label='Charge Capacity')
                 ax1.plot(df_output['Cycles'], df_output['Discharge Capacity (mAh/g)'], marker='s', linestyle='--', markersize=4, label='Discharge Capacity')
                 ax1.set_title(f'Capacity Degradation for {plot_material}', fontsize=16)
                 ax1.set_ylabel('Capacity (mAh/g)', fontsize=12)
                 ax1.grid(True)
                 ax1.legend()
-
-                # Plot 2: Efficiency
                 ax2.plot(df_output['Cycles'], df_output['Coulombic Efficiency (%)'], marker='^', linestyle=':', color='purple', label='Coulombic Efficiency')
                 ax2.set_title(f'Coulombic Efficiency for {plot_material}', fontsize=16)
                 ax2.set_xlabel('Number of Cycles Completed', fontsize=12)
                 ax2.set_ylabel('Efficiency (%)', fontsize=12)
                 ax2.grid(True)
-                ax2.set_ylim(bottom=max(0, df_output['Coulombic Efficiency (%)'].min() - 2), top=102) # Set y-axis for percentage
+                ax2.set_ylim(bottom=max(0, df_output['Coulombic Efficiency (%)'].min() - 2), top=102)
                 ax2.legend()
-
                 st.pyplot(fig)
-
             elif output_format == 'Tabular Data':
                 st.subheader("Predictive Degradation Data Table")
-                st.dataframe(df_output.style.format({
-                    'Charge Capacity (mAh/g)': '{:.2f}',
-                    'Discharge Capacity (mAh/g)': '{:.2f}',
-                    'Coulombic Efficiency (%)': '{:.2f}',
-                    'Cycles': '{}'
-                }))
+                st.dataframe(df_output.style.format({'Charge Capacity (mAh/g)': '{:.2f}', 'Discharge Capacity (mAh/g)': '{:.2f}', 'Coulombic Efficiency (%)': '{:.2f}', 'Cycles': '{}'}))
 
-# --- TAB 2: The Technology Comparison page ---
+# --- TAB 2: The Technology Comparison page (UPDATED) ---
 with tab2:
-    # (The code for Tab 2 is unchanged)
     st.header("⚡ Technology Comparison Dashboard")
-    st.markdown("This dashboard compares key performance metrics of our best supercapacitor against typical values for commercial Lithium-ion and emerging Sodium-ion batteries.")
-    # ... (rest of the tab2 code is unchanged)
-    comparison_data = {'Technology': ['This Project\'s Supercapacitor', 'Lithium-ion (Li-ion)', 'Sodium-ion (Na-ion)'], 'Energy Density (Wh/kg)': [27.53, 150, 120], 'Power Density (W/kg)': [1875, 300, 200], 'Cycle Life': [50000, 1000, 2000]}
+    st.markdown("This dashboard compares key performance metrics across the full spectrum of energy storage technologies.")
+    
+    # ### NEW: Added Conventional Capacitor to the data ###
+    comparison_data = {
+        'Technology': ['Conventional Capacitor', 'This Project\'s Supercapacitor', 'Lithium-ion (Li-ion)', 'Sodium-ion (Na-ion)'],
+        'Energy Density (Wh/kg)': [0.01, 27.53, 150, 120],
+        'Power Density (W/kg)': [10000, 1875, 300, 200],
+        'Cycle Life': [1000000, 50000, 1000, 2000]
+    }
     df_compare = pd.DataFrame(comparison_data)
+    
+    # Use custom colors for 4 items
+    colors = ['#d62728', '#1f77b4', '#ff7f0e', '#2ca02c'] # Red, Blue, Orange, Green
+
     col1, col2 = st.columns(2)
     with col1:
-        st.subheader("Energy Density (Wh/kg)"); st.info("How much energy is stored (higher is better).")
-        fig1, ax1 = plt.subplots(figsize=(6, 5)); bars1 = ax1.bar(df_compare['Technology'], df_compare['Energy Density (Wh/kg)'], color=['#1f77b4', '#ff7f0e', '#2ca02c']); ax1.set_ylabel("Energy Density (Wh/kg)"); _ = ax1.bar_label(bars1); st.pyplot(fig1)
-        st.subheader("Cycle Life"); st.info("How many times it can be charged (higher is better).")
-        fig3, ax3 = plt.subplots(figsize=(6, 5)); bars3 = ax3.bar(df_compare['Technology'], df_compare['Cycle Life'], color=['#1f77b4', '#ff7f0e', '#2ca02c']); ax3.set_ylabel("Number of Cycles"); ax3.set_yscale('log'); _ = ax3.bar_label(bars3); st.pyplot(fig3)
+        st.subheader("Energy Density (Wh/kg)")
+        st.info("How much energy is stored (higher is better).")
+        fig1, ax1 = plt.subplots(figsize=(6, 5))
+        bars1 = ax1.bar(df_compare['Technology'], df_compare['Energy Density (Wh/kg)'], color=colors)
+        ax1.set_ylabel("Energy Density (Wh/kg)")
+        ax1.set_yscale('log')
+        _ = ax1.bar_label(bars1)
+        st.pyplot(fig1)
+        
+        st.subheader("Cycle Life")
+        st.info("How many times it can be charged (higher is better).")
+        fig3, ax3 = plt.subplots(figsize=(6, 5))
+        bars3 = ax3.bar(df_compare['Technology'], df_compare['Cycle Life'], color=colors)
+        ax3.set_ylabel("Number of Cycles")
+        ax3.set_yscale('log')
+        _ = ax3.bar_label(bars3)
+        st.pyplot(fig3)
     with col2:
-        st.subheader("Power Density (W/kg)"); st.info("How quickly energy is delivered (higher is better).")
-        fig2, ax2 = plt.subplots(figsize=(6, 5)); bars2 = ax2.bar(df_compare['Technology'], df_compare['Power Density (W/kg)'], color=['#1f77b4', '#ff7f0e', '#2ca02c']); ax2.set_ylabel("Power Density (W/kg)"); ax2.set_yscale('log'); _ = ax2.bar_label(bars2); st.pyplot(fig2)
-        st.subheader("Qualitative Comparison"); st.info("Cost and safety are critical for real-world use.")
-        qualitative_data = {'Technology': ['This Project\'s Supercapacitor', 'Lithium-ion (Li-ion)', 'Sodium-ion (Na-ion)'], 'Relative Cost': ['Medium', 'High', 'Low'], 'Safety': ['Very High', 'Medium', 'High']}
+        st.subheader("Power Density (W/kg)")
+        st.info("How quickly energy is delivered (higher is better).")
+        fig2, ax2 = plt.subplots(figsize=(6, 5))
+        bars2 = ax2.bar(df_compare['Technology'], df_compare['Power Density (W/kg)'], color=colors)
+        ax2.set_ylabel("Power Density (W/kg)")
+        ax2.set_yscale('log')
+        _ = ax2.bar_label(bars2)
+        st.pyplot(fig2)
+
+        st.subheader("Qualitative Comparison")
+        st.info("Charge time and safety are critical for real-world use.")
+        qualitative_data = {
+            'Technology': ['Conventional Capacitor', 'This Project\'s Supercapacitor', 'Lithium-ion (Li-ion)', 'Sodium-ion (Na-ion)'],
+            'Charge Time': ['Milliseconds', 'Seconds', 'Hours', 'Hours'],
+            'Safety': ['Extremely High', 'Very High', 'Medium', 'High']
+        }
         st.dataframe(pd.DataFrame(qualitative_data))
+        
     st.divider()
     st.header("The Verdict: Which Technology is Best?")
     st.markdown("There is no single 'best' technology. The ideal choice depends entirely on the application's priorities.")
-    c1, c2, c3 = st.columns(3)
+    
+    # ### NEW: A 4-column layout for the verdict ###
+    c1, c2, c3, c4 = st.columns(4)
     with c1:
-        st.subheader("🏆 Lithium-ion (Li-ion)"), st.markdown("**Best for: High Energy Storage & Longevity**"), st.markdown("Choose Li-ion when you need to store the maximum amount of energy in the smallest package. Ideal for applications where long runtime is critical."), st.success("**Top Applications:** Electric Vehicles, Smartphones, Laptops.")
+        st.subheader("⚡ Capacitor")
+        st.markdown("**Best for: Instantaneous Power**")
+        st.success("**Use Case:** Signal filtering, camera flashes.")
     with c2:
-        st.subheader("🚀 Supercapacitor"), st.markdown("**Best for: Speed & Extreme Durability**"), st.markdown("Choose a Supercapacitor for massive bursts of power or applications requiring tens of thousands of cycles. It delivers energy much faster and lasts far longer than a battery."), st.success("**Top Applications:** Regenerative Braking, Camera Flashes, Critical Backup Power.")
+        st.subheader("🚀 Supercapacitor")
+        st.markdown("**Best for: Speed & Durability**")
+        st.success("**Use Case:** Regenerative braking, backup power.")
     with c3:
-        st.subheader("💰 Sodium-ion (Na-ion)"), st.markdown("**Best for: Low Cost & Stationary Storage**"), st.markdown("Choose Na-ion when cost is the most important factor. By using abundant sodium, it dramatically lowers the price for applications where weight and size are not primary concerns."), st.success("**Top Applications:** Home Energy Storage, Data Centers, Grid Backup.")
+        st.subheader("🏆 Lithium-ion (Li-ion)")
+        st.markdown("**Best for: High Energy Storage**")
+        st.success("**Use Case:** Electric vehicles, smartphones.")
+    with c4:
+        st.subheader("💰 Sodium-ion (Na-ion)")
+        st.markdown("**Best for: Low Cost & Stationary**")
+        st.success("**Use Case:** Home energy storage, grid backup.")
+
+# --- TAB 3: The Training Dataset Viewer ---
+with tab3:
+    st.header("📊 Supercapacitor Model Training Dataset")
+    st.markdown("This table displays the **complete, synthetically generated dataset** that was used to train the XGBoost predictive models.")
+    st.dataframe(df_training_data)
